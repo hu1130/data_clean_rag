@@ -1,0 +1,75 @@
+# config.yaml - 项目配置文件
+# 数据清洗配置
+data_cleaning:
+  input_path: "data/raw/"
+  output_path: "data/cleaned/"
+
+  # 文本清洗规则
+  text_cleaning:
+    remove_html: true
+    remove_urls: true
+    remove_emails: true
+    normalize_whitespace: true
+    lowercase: false
+    remove_punctuation: false
+    min_length: 10
+    max_length: 5000
+
+  # 去重配置
+  deduplication:
+    enabled: true
+    method: "exact"  # minhash / exact / semantic
+    threshold: 0.85
+
+  # 质量过滤
+  quality_filter:
+    enabled: true
+    min_word_count: 2
+    max_word_count: 1000
+    language_filter: []
+    remove_gibberish: false
+
+# 向量数据库配置
+vector_db:
+  # 支持的类型: chroma / milvus / qdrant / pinecone / weaviate
+  type: "chroma"
+
+  chroma:
+    persist_directory: "./chroma_db"
+    collection_name: "documents"
+
+  milvus:
+    host: "localhost"
+    port: 19530
+    collection_name: "documents"
+    dimension: 768
+
+  qdrant:
+    host: "localhost"
+    port: 6333
+    collection_name: "documents"
+    dimension: 768
+
+# 嵌入模型配置
+embedding:
+  # 支持的模型类型
+  model_name: "BAAI/bge-large-zh-v1.5"
+  device: "cpu"  # auto / cpu / cuda
+  batch_size: 32
+  normalize_embeddings: true
+
+  # 本地模型路径（可选）
+  local_model_path: null
+
+# 分块配置
+chunking:
+  enabled: true
+  chunk_size: 512
+  chunk_overlap: 128
+  method: "recursive"  # recursive / fixed / semantic
+
+# 日志配置
+logging:
+  level: "INFO"
+  file: "logs/app.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
