@@ -5,7 +5,6 @@
 
 import hashlib
 from typing import List, Set, Dict, Any, Optional
-from datasketch import MinHash, MinHashLSH
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,16 +26,31 @@ class ExactDeduplicator:
                 unique_texts.append(text)
         return unique_texts
 
+    def reset(self):
+        """重置去重状态"""
+        self.seen_hashes.clear()
+
 
 class MinHashDeduplicator:
     """MinHash 近似去重"""
 
     def __init__(self, threshold: float = 0.85, num_perm: int = 128):
+        try:
+            from datasketch import MinHashLSH
+        except ImportError:
+            raise ImportError("使用 MinHash 去重需要安装 datasketch: pip install datasketch")
+
         self.threshold = threshold
         self.num_perm = num_perm
         self.lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
-        self.minhashes: Dict[str, MinHash] = {}
+        self.minhash_cls = self._load_minhash_cls()
+        self.minhash_lsh_cls = MinHashLSH
+        self.minhashes: Dict[str, Any] = {}
         self.counter = 0
+
+    def _load_minhash_cls(self):
+        from datasketch import MinHash
+        return MinHash
 
     def _get_shingles(self, text: str, k: int = 5) -> List[str]:
         """获取 k-gram shingles"""
@@ -47,7 +61,7 @@ class MinHashDeduplicator:
         unique_texts = []
 
         for text in texts:
-            m = MinHash(num_perm=self.num_perm)
+            m = self.minhash_cls(num_perm=self.num_perm)
             shingles = self._get_shingles(text)
 
             for s in shingles:
@@ -70,7 +84,7 @@ class MinHashDeduplicator:
 
     def reset(self):
         """重置去重器"""
-        self.lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm)
+        self.lsh = self.minhash_lsh_cls(threshold=self.threshold, num_perm=self.num_perm)
         self.minhashes = {}
         self.counter = 0
 
@@ -96,3 +110,8 @@ class DedupPipeline:
         result = self.dedup.deduplicate(texts)
         logger.info(f"去重后数量: {len(result)}")
         return result
+
+    def reset(self):
+        """重置去重状态"""
+        if hasattr(self.dedup, 'reset'):
+            self.dedup.reset()

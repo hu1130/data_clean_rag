@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Clean RAG Console</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">RAG</span>
+        <div>
+          <h1>Data Clean Console</h1>
+          <p>清洗、入库、检索、验收</p>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-item active" data-view="upload" type="button">入库</button>
+        <button class="nav-item" data-view="files" type="button">文件</button>
+        <button class="nav-item" data-view="tasks" type="button">任务</button>
+        <button class="nav-item" data-view="preview" type="button">预览</button>
+        <button class="nav-item" data-view="search" type="button">检索</button>
+        <button class="nav-item" data-view="reports" type="button">报告</button>
+        <button class="nav-item" data-view="system" type="button">系统</button>
+        <button class="nav-item" data-view="config" type="button">配置</button>
+      </nav>
+
+      <section class="connection-panel">
+        <label for="apiBase">API 地址</label>
+        <input id="apiBase" type="url" value="http://127.0.0.1:8131">
+        <label for="apiKey">API Key</label>
+        <input id="apiKey" type="password" placeholder="未启用可留空">
+        <button id="saveConnection" class="secondary-btn" type="button">保存连接</button>
+      </section>
+
+      <section class="sidebar-note" aria-label="工具能力">
+        <strong>复杂数据清洗</strong>
+        <p>多格式解析、质量过滤、父子 chunk、增量入库、metadata 审计。</p>
+      </section>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">工作台</p>
+          <h2 id="viewTitle">文件入库</h2>
+        </div>
+        <div class="status-strip">
+          <span id="healthStatus" class="status-pill neutral">未连接</span>
+          <button id="refreshAll" class="icon-btn" type="button" title="刷新当前状态" aria-label="刷新当前状态">
+            <span aria-hidden="true">↻</span>
+          </button>
+        </div>
+      </header>
+
+      <section id="upload" class="view active-view">
+        <div class="workflow-strip" aria-label="处理流程">
+          <article>
+            <span>01</span>
+            <strong>导入</strong>
+            <p>PDF、DOCX、Excel、CSV、JSONL、HTML、图片 OCR</p>
+          </article>
+          <article>
+            <span>02</span>
+            <strong>清洗</strong>
+            <p>去噪、去重、质量评分、低质量内容过滤</p>
+          </article>
+          <article>
+            <span>03</span>
+            <strong>分块</strong>
+            <p>保留标题、页码、表格、父子 chunk 关系</p>
+          </article>
+          <article>
+            <span>04</span>
+            <strong>验收</strong>
+            <p>任务进度、文件历史、处理报告、metadata 审计</p>
+          </article>
+        </div>
+
+        <div class="section-grid two-columns">
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>文件入库</h3>
+              <span class="panel-meta">PDF / DOCX / Excel / CSV / JSONL / HTML / 图片 OCR</span>
+            </div>
+            <form id="uploadForm" class="form-grid">
+              <label class="file-drop" for="fileInput">
+                <input id="fileInput" type="file" multiple>
+                <span class="file-drop-title">选择文件</span>
+                <span id="fileSummary">未选择文件</span>
+              </label>
+
+              <div class="control-row">
+                <label class="toggle">
+                  <input id="backgroundUpload" type="checkbox" checked>
+                  <span>后台处理</span>
+                </label>
+                <label class="toggle">
+                  <input id="ocrEnabled" type="checkbox">
+                  <span>OCR</span>
+                </label>
+                <label class="toggle">
+                  <input id="forceReprocess" type="checkbox">
+                  <span>强制重建</span>
+                </label>
+              </div>
+
+              <div class="field-row">
+                <label>
+                  OCR 语言
+                  <input id="ocrLanguage" type="text" value="chi_sim+eng">
+                </label>
+                <label>
+                  最大文件 MB
+                  <input id="maxFileSize" type="number" min="1" value="100">
+                </label>
+              </div>
+
+              <div class="field-row">
+                <label>
+                  文本字段
+                  <input id="textFields" type="text" placeholder="text,content,data.body">
+                </label>
+                <label>
+                  最大记录数
+                  <input id="maxRecords" type="number" min="1" placeholder="不限制">
+                </label>
+              </div>
+
+              <button class="primary-btn" type="submit">开始入库</button>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>最近结果</h3>
+              <button id="clearLog" class="text-btn" type="button">清空</button>
+            </div>
+            <div id="activityLog" class="log-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="files" class="view">
+        <div class="section-grid two-columns">
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>文件历史</h3>
+              <button id="refreshFiles" class="secondary-btn" type="button">刷新文件</button>
+            </div>
+            <div id="fileSummaryCards" class="metric-grid"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>文件</th>
+                    <th>类型</th>
+                    <th>文档</th>
+                    <th>chunk</th>
+                    <th>时间</th>
+                    <th>详情</th>
+                  </tr>
+                </thead>
+                <tbody id="fileRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>文件详情</h3>
+              <span class="panel-meta">manifest 记录</span>
+            </div>
+            <div id="fileDetailOutput" class="detail-output">
+              <div class="empty-state">选择一个文件查看详情</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="tasks" class="view">
+        <section class="panel full-panel">
+          <div class="panel-heading">
+            <h3>任务队列</h3>
+            <button id="refreshTasks" class="secondary-btn" type="button">刷新任务</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>任务</th>
+                  <th>类型</th>
+                  <th>状态</th>
+                  <th>进度</th>
+                  <th>次数</th>
+                  <th>更新时间</th>
+                  <th>详情</th>
+                </tr>
+              </thead>
+              <tbody id="taskRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="preview" class="view">
+        <div class="section-grid two-columns">
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>清洗预览</h3>
+              <span class="panel-meta">不写入向量库</span>
+            </div>
+            <form id="previewForm" class="form-grid">
+              <label>
+                原始文本
+                <textarea id="previewText" rows="12">这是一段用于预览清洗、质量过滤和分块的测试文本。它包含足够的句子长度，便于观察父子 chunk 和质量评分。</textarea>
+              </label>
+              <button class="primary-btn" type="submit">生成预览</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>预览结果</h3>
+              <span id="previewCount" class="panel-meta">0 chunks</span>
+            </div>
+            <div id="previewQuality" class="quality-panel"></div>
+            <div id="previewOutput" class="result-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="search" class="view">
+        <section class="panel full-panel">
+          <div class="panel-heading">
+            <h3>检索测试</h3>
+            <span class="panel-meta">支持 metadata filter</span>
+          </div>
+          <form id="searchForm" class="search-row">
+            <input id="searchQuery" type="search" placeholder="输入检索问题">
+            <input id="searchFilter" type="text" placeholder='filters JSON，例如 {"filename":"a.pdf"}'>
+            <input id="topK" type="number" min="1" max="50" value="5">
+            <button class="primary-btn" type="submit">检索</button>
+          </form>
+          <div id="searchOutput" class="result-list wide-results"></div>
+        </section>
+      </section>
+
+      <section id="reports" class="view">
+        <section class="panel full-panel">
+          <div class="panel-heading">
+            <h3>处理报告</h3>
+            <span class="panel-meta">清洗、过滤、chunk、文件级统计</span>
+          </div>
+          <div id="reportOutput" class="report-output">
+            <div class="empty-state">暂无报告</div>
+          </div>
+        </section>
+      </section>
+
+      <section id="system" class="view">
+        <div class="section-grid two-columns">
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>运行诊断</h3>
+              <button id="refreshDiagnostics" class="secondary-btn" type="button">刷新诊断</button>
+            </div>
+            <div id="diagnosticsOutput" class="metric-grid"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>向量库</h3>
+              <button id="refreshDb" class="secondary-btn" type="button">刷新数据库</button>
+            </div>
+            <div id="dbOutput" class="metric-grid"></div>
+          </section>
+          <section class="panel span-two">
+            <div class="panel-heading">
+              <h3>Metadata 批次</h3>
+              <button id="refreshMetadataRuns" class="secondary-btn" type="button">刷新批次</button>
+            </div>
+            <div id="metadataRunsOutput" class="metadata-run-list"></div>
+            <div id="metadataRunDetailOutput" class="detail-output">
+              <div class="empty-state">选择一个批次查看 chunk 审计</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="config" class="view">
+        <div class="section-grid two-columns">
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>当前配置</h3>
+              <button id="refreshConfig" class="secondary-btn" type="button">刷新配置</button>
+            </div>
+            <div id="configSummary" class="metric-grid"></div>
+            <textarea id="configOutput" class="code-area" readonly></textarea>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>应用配置片段</h3>
+              <span class="panel-meta">JSON 会递归合并</span>
+            </div>
+            <form id="configForm" class="form-grid">
+              <label>
+                配置片段
+                <textarea id="configPatch" class="code-area" rows="12" placeholder='{"chunking":{"chunk_size":256}}'></textarea>
+              </label>
+              <button class="primary-btn" type="submit">应用配置</button>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="logTemplate">
+    <article class="log-item">
+      <span class="log-state"></span>
+      <div>
+        <strong></strong>
+        <p></p>
+      </div>
+      <time></time>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>

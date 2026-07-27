@@ -1,0 +1,121 @@
+# 本地开发/快速验证配置：不依赖外部向量库或大模型下载
+data_cleaning:
+  input_path: "data/raw/"
+  output_path: "data/cleaned/"
+
+  text_cleaning:
+    remove_html: true
+    remove_urls: true
+    remove_emails: true
+    normalize_whitespace: true
+    lowercase: false
+    remove_punctuation: false
+    min_length: 1
+    max_length: 5000
+
+  deduplication:
+    enabled: true
+    method: "exact"
+    threshold: 0.85
+
+  quality_filter:
+    enabled: true
+    min_word_count: 1
+    max_word_count: 1000
+    language_filter: []
+    remove_gibberish: false
+    min_score: 60
+    max_symbol_ratio: 0.35
+    max_digit_ratio: 0.80
+    max_repeated_char_ratio: 0.30
+    max_repeated_line_ratio: 0.50
+    min_printable_ratio: 0.90
+    max_mojibake_ratio: 0.02
+    max_ocr_noise_ratio: 0.45
+    max_html_tag_count: 0
+
+ingestion:
+  incremental: true
+  manifest_backend: "sqlite"
+  manifest_path: "data/manifest.sqlite3"
+
+tasks:
+  enabled: true
+  store_path: "data/tasks.sqlite3"
+  max_history: 100
+  worker_enabled: true
+  max_attempts: 2
+  retry_delay_seconds: 5
+  lease_timeout_seconds: 3600
+  poll_interval_seconds: 1.0
+
+metadata_db:
+  enabled: false
+  type: "sqlite"
+  fail_on_error: true
+  sqlite:
+    path: "data/metadata.dev.sqlite3"
+
+vector_db:
+  type: "memory"
+
+  memory:
+    collection_name: "documents"
+
+  sqlite:
+    path: "data/vectors.dev.sqlite3"
+    collection_name: "documents"
+
+embedding:
+  provider: "hash"
+  model_name: "hash"
+  device: "cpu"
+  batch_size: 32
+  normalize_embeddings: true
+  dimension: 384
+
+reranker:
+  enabled: false
+  type: "keyword"
+  candidate_top_k: 20
+
+llm:
+  provider: "deepseek"
+  model_name: "deepseek-v4-flash"
+  api_key_env: "DEEPSEEK_API_KEY"
+  base_url: "https://api.deepseek.com/v1"
+  temperature: 0.2
+  max_tokens: 800
+  timeout_seconds: 60
+  max_context_chars: 6000
+  system_prompt: "你是一个严谨的数据问答助手。只能根据提供资料回答；资料不足时说明“当前资料不足以回答”；回答必须给出 [1]、[2] 这样的引用编号；不要编造文件中没有的信息。"
+  providers:
+    openai:
+      base_url: "https://api.openai.com/v1"
+      api_key_env: "OPENAI_API_KEY"
+      api_key_required: true
+    deepseek:
+      base_url: "https://api.deepseek.com/v1"
+      api_key_env: "DEEPSEEK_API_KEY"
+      api_key_required: true
+      model_name: "deepseek-v4-flash"
+    openai_compatible:
+      base_url: "http://127.0.0.1:8000/v1"
+      api_key_env: "OPENAI_API_KEY"
+      api_key_required: false
+    ollama:
+      base_url: "http://127.0.0.1:11434"
+
+chunking:
+  enabled: true
+  chunk_size: 256
+  chunk_overlap: 32
+  method: "recursive"
+  parent_child:
+    enabled: true
+    parent_context_chars: 1200
+
+logging:
+  level: "INFO"
+  file: "logs/app.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

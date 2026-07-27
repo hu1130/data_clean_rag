@@ -28,11 +28,60 @@ data_cleaning:
     max_word_count: 1000
     language_filter: []
     remove_gibberish: false
+    min_score: 60
+    max_symbol_ratio: 0.35
+    max_digit_ratio: 0.80
+    max_repeated_char_ratio: 0.30
+    max_repeated_line_ratio: 0.50
+    min_printable_ratio: 0.90
+    max_mojibake_ratio: 0.02
+    max_ocr_noise_ratio: 0.45
+    max_html_tag_count: 0
+
+ingestion:
+  incremental: true
+  manifest_backend: "sqlite"
+  manifest_path: "data/manifest.sqlite3"
+
+tasks:
+  enabled: true
+  store_path: "data/tasks.sqlite3"
+  max_history: 100
+  worker_enabled: true
+  max_attempts: 2
+  retry_delay_seconds: 5
+  lease_timeout_seconds: 3600
+  poll_interval_seconds: 1.0
+
+# Route A: MySQL stores business metadata; vector_db still stores vectors.
+metadata_db:
+  enabled: false
+  type: "mysql"  # mysql / sqlite
+  fail_on_error: true
+
+  mysql:
+    host: "127.0.0.1"
+    port: 3306
+    database: "data_clean_rag"
+    user: "data_clean_rag"
+    password_env: "MYSQL_PASSWORD"
+    charset: "utf8mb4"
+    connect_timeout: 10
+
+  sqlite:
+    path: "data/metadata.sqlite3"
 
 # 向量数据库配置
 vector_db:
-  # 支持的类型: chroma / milvus / qdrant / pinecone / weaviate
+  # 支持的类型: memory / chroma / qdrant
   type: "chroma"
+
+  memory:
+    collection_name: "documents"
+
+  sqlite:
+    path: "data/vectors.sqlite3"
+    collection_name: "documents"
 
   chroma:
     persist_directory: "./chroma_db"
@@ -53,13 +102,50 @@ vector_db:
 # 嵌入模型配置
 embedding:
   # 支持的模型类型
+  provider: "sentence_transformers"  # hash / sentence_transformers / openai
   model_name: "BAAI/bge-large-zh-v1.5"
   device: "cpu"  # auto / cpu / cuda
   batch_size: 32
   normalize_embeddings: true
+  api_key_env: "OPENAI_API_KEY"
 
   # 本地模型路径（可选）
   local_model_path: null
+
+reranker:
+  enabled: false
+  type: "cross_encoder"  # cross_encoder / keyword
+  model_name: "BAAI/bge-reranker-base"
+  device: "cpu"
+  batch_size: 32
+  candidate_top_k: 20
+
+llm:
+  provider: "deepseek"
+  model_name: "deepseek-v4-flash"
+  api_key_env: "DEEPSEEK_API_KEY"
+  base_url: "https://api.deepseek.com/v1"
+  temperature: 0.2
+  max_tokens: 800
+  timeout_seconds: 60
+  max_context_chars: 6000
+  system_prompt: "你是一个严谨的数据问答助手。只能根据提供资料回答；资料不足时说明“当前资料不足以回答”；回答必须给出 [1]、[2] 这样的引用编号；不要编造文件中没有的信息。"
+  providers:
+    openai:
+      base_url: "https://api.openai.com/v1"
+      api_key_env: "OPENAI_API_KEY"
+      api_key_required: true
+    deepseek:
+      base_url: "https://api.deepseek.com/v1"
+      api_key_env: "DEEPSEEK_API_KEY"
+      api_key_required: true
+      model_name: "deepseek-v4-flash"
+    openai_compatible:
+      base_url: "http://127.0.0.1:8000/v1"
+      api_key_env: "OPENAI_API_KEY"
+      api_key_required: false
+    ollama:
+      base_url: "http://127.0.0.1:11434"
 
 # 分块配置
 chunking:
@@ -67,6 +153,9 @@ chunking:
   chunk_size: 512
   chunk_overlap: 128
   method: "recursive"  # recursive / fixed / semantic
+  parent_child:
+    enabled: true
+    parent_context_chars: 1200
 
 # 日志配置
 logging:

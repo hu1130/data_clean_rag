@@ -1,11 +1,19 @@
 # 核心依赖
-sentence-transformers>=2.2.0
-chromadb>=0.4.0
+sentence-transformers>=3.3.1,<4.0.0
+transformers>=4.46.3,<5.0.0
+tokenizers==0.20.3
+chromadb>=0.5.23,<0.6.0
+posthog>=3.25.0,<4.0.0
 qdrant-client>=1.6.0
+PyMySQL>=1.1.0
 
 # 数据处理
 numpy>=1.24.0
 pyyaml>=6.0
+pypdf>=4.0.0
+python-docx>=1.1.0
+openpyxl>=3.1.0
+beautifulsoup4>=4.12.0
 
 # 去重
 datasketch>=1.5.0
@@ -14,6 +22,9 @@ datasketch>=1.5.0
 # openai>=1.0.0          # OpenAI 嵌入模型
 # pymilvus>=2.3.0        # Milvus 向量数据库
 # weaviate-client>=3.0.0 # Weaviate 向量数据库
+# pdf2image>=1.17.0      # PDF OCR 页面转图片；还需要系统安装 Poppler
+# pillow>=10.0.0         # 图片 OCR 读取
+# pytesseract>=0.3.10    # Tesseract OCR Python 封装；还需要系统安装 Tesseract
 
 # API 框架
 fastapi>=0.115.0

@@ -1,0 +1,3 @@
+{"id":"doc-001","data":{"body":"嵌套字段样例：本记录用于测试 data.body 字段读取。内容提到 Excel 合并单元格、父子 chunk 和 metadata filter。"},"source":"jsonl"}
+{"id":"doc-002","data":{"body":"第二条记录用于测试批量导入。检索问题可以问：父级上下文是否会随子 chunk 返回？"},"source":"jsonl"}
+{"id":"doc-003","data":{"body":"第三条记录包含业务字段：project=DCR-2026-0703，owner=HYF，status=ready_for_test。"},"source":"jsonl"}
