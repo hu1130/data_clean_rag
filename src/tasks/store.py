@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -28,8 +29,22 @@ class SQLiteTaskStore:
         connection.execute("PRAGMA busy_timeout=30000")
         return connection
 
+    @contextmanager
+    def _session(self):
+        """Yield a connection, commit on success, roll back on error, always close."""
+        connection = self._connect()
+        try:
+            yield connection
+        except Exception:
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
+        finally:
+            connection.close()
+
     def _ensure_schema(self):
-        with self._connect() as connection:
+        with self._session() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS tasks (
@@ -77,7 +92,7 @@ class SQLiteTaskStore:
 
     def save_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         normalized = self._normalize_task(task)
-        with self._connect() as connection:
+        with self._session() as connection:
             connection.execute(
                 """
                 INSERT INTO tasks (
@@ -115,7 +130,7 @@ class SQLiteTaskStore:
         return self.save_task(task)
 
     def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
-        with self._connect() as connection:
+        with self._session() as connection:
             row = connection.execute(
                 "SELECT * FROM tasks WHERE task_id = ?",
                 (task_id,),
@@ -125,7 +140,7 @@ class SQLiteTaskStore:
         return self._row_to_task(row)
 
     def list_tasks(self, limit: int = 100) -> List[Dict[str, Any]]:
-        with self._connect() as connection:
+        with self._session() as connection:
             rows = connection.execute(
                 "SELECT * FROM tasks ORDER BY created_at DESC LIMIT ?",
                 (limit,),
@@ -135,7 +150,7 @@ class SQLiteTaskStore:
     def claim_next(self, worker_id: str, lease_timeout_seconds: int = 3600) -> Optional[Dict[str, Any]]:
         now = time.time()
         stale_before = now - lease_timeout_seconds
-        with self._connect() as connection:
+        with self._session() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 """
@@ -208,7 +223,7 @@ class SQLiteTaskStore:
             },
             ensure_ascii=False,
         )
-        with self._connect() as connection:
+        with self._session() as connection:
             cursor = connection.execute(
                 """
                 UPDATE tasks
@@ -257,7 +272,7 @@ class SQLiteTaskStore:
 
     def mark_incomplete_interrupted(self, message: str = "Task interrupted by service restart") -> int:
         now = time.time()
-        with self._connect() as connection:
+        with self._session() as connection:
             cursor = connection.execute(
                 """
                 UPDATE tasks
@@ -290,7 +305,7 @@ class SQLiteTaskStore:
     def prune(self, max_history: int = 100):
         if max_history <= 0:
             return
-        with self._connect() as connection:
+        with self._session() as connection:
             connection.execute(
                 """
                 DELETE FROM tasks

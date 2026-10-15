@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -125,8 +126,22 @@ class SQLiteProcessingManifest:
         connection.execute("PRAGMA busy_timeout=30000")
         return connection
 
+    @contextmanager
+    def _session(self):
+        """Yield a connection, commit on success, roll back on error, always close."""
+        connection = self._connect()
+        try:
+            yield connection
+        except Exception:
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
+        finally:
+            connection.close()
+
     def _ensure_schema(self):
-        with self._connect() as connection:
+        with self._session() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS files (
@@ -153,7 +168,7 @@ class SQLiteProcessingManifest:
             )
 
     def get(self, file_key: str) -> Optional[Dict[str, Any]]:
-        with self._connect() as connection:
+        with self._session() as connection:
             row = connection.execute(
                 "SELECT * FROM files WHERE file_key = ?",
                 (file_key,),
@@ -203,7 +218,7 @@ class SQLiteProcessingManifest:
         if stats is not None:
             record["stats"] = stats
 
-        with self._connect() as connection:
+        with self._session() as connection:
             connection.execute(
                 """
                 INSERT INTO files (
@@ -247,7 +262,7 @@ class SQLiteProcessingManifest:
         self._ensure_schema()
 
     def to_dict(self) -> Dict[str, Any]:
-        with self._connect() as connection:
+        with self._session() as connection:
             rows = connection.execute("SELECT * FROM files ORDER BY file_key").fetchall()
         return {
             "version": MANIFEST_VERSION,
